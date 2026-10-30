@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Branch {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(150)
+  locationCode String   @unique @map("location_code") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at")
+  users        User[]
+  attendances  Attendance[]
+
+  @@map("branches")
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique @db.VarChar(32)
+  name          String        @db.VarChar(150)
+  pin           String        @map("pin_hash") @db.VarChar(255)
+  role          UserRole      @default(EMPLOYEE)
+  branchId      Int           @map("branch_id")
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  attendances   Attendance[]
+  leaveRequests LeaveRequest[]
+
+  @@index([branchId])
+  @@map("users")
+}
+
+model Attendance {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  branchId     Int       @map("branch_id")
+  checkInTime  DateTime  @map("check_in_time")
+  checkOutTime DateTime? @map("check_out_time")
+  selfieUrl    String?   @map("selfie_url") @db.VarChar(2048)
+  status       String    @default("PRESENT") @db.VarChar(32)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch       Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([userId, checkInTime])
+  @@index([branchId, checkInTime])
+  @@map("attendances")
+}
+
+model LeaveRequest {
+  id          Int         @id @default(autoincrement())
+  userId      Int         @map("user_id")
+  leaveType   String      @map("leave_type") @db.VarChar(80)
+  startDate   DateTime    @map("start_date") @db.Date
+  endDate     DateTime    @map("end_date") @db.Date
+  reason      String      @db.Text
+  proofUrl    String?     @map("proof_url") @db.VarChar(2048)
+  status      LeaveStatus @default(PENDING)
+  adminNotes  String?     @map("admin_notes") @db.Text
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([status, startDate])
+  @@map("leave_requests")
+}
